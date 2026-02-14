@@ -229,7 +229,7 @@ typedef struct // 8bb: custom struct
 {
 	uint32_t NumChannels;
 	uint8_t Type, Flags, FilterParameters[128];
-	uint32_t MixMode, MixSpeed;
+	uint32_t MixMode, MixFrequency;
 	int32_t Delta32;
 	int64_t Delta64;
 	float QualityFactorTable[128], FreqParameterMultiplier, FreqMultiplier;

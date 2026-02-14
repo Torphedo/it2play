@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
 
 			default:
 			case LOAD_ERR_INCOMPATIBLE:
-				printf("LOAD ERROR: This module is incompatible or corrupt!\n");
+				printf("LOAD ERROR: This module is incompatible or corrupt !\n");
 				break;
 		}
 
@@ -175,7 +175,7 @@ int main(int argc, char *argv[])
 	printf("\n");
 	printf("Stereo mode: %s\n", (Song.Header.Flags & ITF_STEREO) ? "Yes" : "No");
 	printf("Mixing volume: %d/128\n", Song.Header.MixVolume);
-	printf("Mixing frequency: %dHz\n", Driver.MixSpeed);
+	printf("Mixing frequency: %dHz\n", Driver.MixFrequency);
 	printf("IT2 sound driver: %s\n",
 		(IT2SoundDriver == DRIVER_WAVWRITER) ? "WAV writer (v2.15 registered)" :
 		(IT2SoundDriver == DRIVER_SB16MMX)   ? "SB16 MMX" :

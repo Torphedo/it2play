@@ -45,7 +45,7 @@ static void SB16MMX_MixSamples(void)
 
 			if (sc->Flags & SF_FREQ_CHANGE)
 			{
-				if ((uint32_t)sc->Frequency>>MIX_FRAC_BITS >= Driver.MixSpeed ||
+				if ((uint32_t)sc->Frequency>>MIX_FRAC_BITS >= Driver.MixFrequency ||
 					(uint32_t)sc->Frequency >= INT32_MAX/2) // 8bb: non-IT2 limit, but required for safety
 				{
 					sc->Flags = SF_NOTE_STOP;
@@ -56,12 +56,12 @@ static void SB16MMX_MixSamples(void)
 				}
 
 				// 8bb: calculate mixer delta (could be faster, but slow method needed for OldSamplesBug)
-				uint32_t Quotient = (uint32_t)sc->Frequency / Driver.MixSpeed;
-				uint32_t Remainder = (uint32_t)sc->Frequency % Driver.MixSpeed;
+				uint32_t Quotient = (uint32_t)sc->Frequency / Driver.MixFrequency;
+				uint32_t Remainder = (uint32_t)sc->Frequency % Driver.MixFrequency;
 				sc->Delta32 = Quotient << MIX_FRAC_BITS;
 				Remainder <<= MIX_FRAC_BITS;
-				Quotient = (uint32_t)Remainder / Driver.MixSpeed;
-				Remainder = (uint32_t)Remainder % Driver.MixSpeed;
+				Quotient = (uint32_t)Remainder / Driver.MixFrequency;
+				Remainder = (uint32_t)Remainder % Driver.MixFrequency;
 				sc->Delta32 |= (uint16_t)Quotient;
 
 				OldSamplesBug = (uint16_t)Remainder; // 8bb: fun
@@ -424,8 +424,8 @@ static void SB16MMX_MixSamples(void)
 
 static void SB16MMX_SetTempo(uint8_t Tempo)
 {
-	assert(Tempo >= LOWEST_BPM_POSSIBLE);
-	BytesToMix = ((Driver.MixSpeed << 1) + (Driver.MixSpeed >> 1)) / Tempo;
+	assert(Tempo >= MIN_BPM);
+	BytesToMix = ((Driver.MixFrequency << 1) + (Driver.MixFrequency >> 1)) / Tempo;
 }
 
 static void SB16MMX_SetMixVolume(uint8_t vol)
@@ -564,7 +564,7 @@ bool SB16MMX_InitDriver(int32_t mixingFrequency)
 	else if (mixingFrequency > 64000)
 		mixingFrequency = 64000;
 
-	const int32_t MaxSamplesToMix = (((mixingFrequency << 1) + (mixingFrequency >> 1)) / LOWEST_BPM_POSSIBLE) + 1;
+	const int32_t MaxSamplesToMix = (((mixingFrequency << 1) + (mixingFrequency >> 1)) / MIN_BPM) + 1;
 
 	MixBuffer = (int32_t *)malloc(MaxSamplesToMix * 2 * sizeof (int32_t));
 	if (MixBuffer == NULL)
@@ -572,7 +572,7 @@ bool SB16MMX_InitDriver(int32_t mixingFrequency)
 
 	Driver.Flags = DF_SUPPORTS_MIDI | DF_USES_VOLRAMP | DF_HAS_RESONANCE_FILTER;
 	Driver.NumChannels = 128;
-	Driver.MixSpeed = mixingFrequency;
+	Driver.MixFrequency = mixingFrequency;
 	Driver.Type = DRIVER_SB16MMX;
 
 	// 8bb: setup driver functions

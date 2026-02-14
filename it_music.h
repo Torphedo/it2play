@@ -28,7 +28,8 @@ enum
 };
 
 // 8bb: 31 is possible through initial tempo (but 32 is the general minimum)
-#define LOWEST_BPM_POSSIBLE 31
+#define MIN_BPM 31
+#define MAX_BPM 255
 
 // 8bb: delta/pos resolution for non-HQ drivers
 #define MIX_FRAC_BITS 16

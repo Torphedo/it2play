@@ -2012,11 +2012,11 @@ bool Music_Init(int32_t mixingFrequency, int32_t mixingBufferSize, int32_t Drive
 	if (Driver.Flags & DF_HAS_RESONANCE_FILTER)
 	{
 		// 8bb: pre-calculate QualityFactorTable (bit-accurate)
-		for (int16_t i = 0; i < 128; i++)
-			Driver.QualityFactorTable[i] = (float)pow(10.0, (-i * 24.0) / (128.0 * 20.0));
+		for (int32_t i = 0; i < 128; i++)
+			Driver.QualityFactorTable[i] = (float)pow(10.0, i * (-24.0 / (128.0 * 20.0)));
 
 		Driver.FreqParameterMultiplier = -0.000162760407f; // -1/(24*256) (8bb: w/ small rounding error!)
-		Driver.FreqMultiplier = 0.00121666200f * (float)mixingFrequency; // 1/(2*PI*110.0*2^0.25) * mixingFrequency
+		Driver.FreqMultiplier = 0.00121666200f * (float)mixingFrequency; // 1/(2*PI*110*2^0.25) * mixingFrequency
 	}
 
 	return true;
@@ -2357,7 +2357,7 @@ static void WAV_WriteEnd(FILE *f, uint32_t size)
 
 bool Music_RenderToWAV(const char *filenameOut)
 {
-	const int32_t MaxSamplesToMix = (((Driver.MixSpeed << 1) + (Driver.MixSpeed >> 1)) / LOWEST_BPM_POSSIBLE) + 1;
+	const int32_t MaxSamplesToMix = (((Driver.MixFrequency << 1) + (Driver.MixFrequency >> 1)) / MIN_BPM) + 1;
 
 	int16_t *AudioBuffer = (int16_t *)malloc(MaxSamplesToMix * 2 * sizeof (int16_t));
 	if (AudioBuffer == NULL)
@@ -2374,7 +2374,7 @@ bool Music_RenderToWAV(const char *filenameOut)
 		return false;
 	}
 
-	WAV_WriteHeader(f, Driver.MixSpeed);
+	WAV_WriteHeader(f, Driver.MixFrequency);
 	uint32_t TotalSamples = 0;
 
 	WAVRender_Flag = true;

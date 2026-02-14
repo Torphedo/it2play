@@ -30,17 +30,14 @@
 
 #define CLAMP(x, low, high) (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
-// fast 32-bit -> 16-bit clamp
-#define CLAMP16(i) if ((int16_t)i != i) i = INT16_MAX ^ ((int32_t)i >> 31)
-
-#define BPM_FRAC_BITS 31 /* absolute max for 32-bit arithmetics, don't change! */
+#define BPM_FRAC_BITS 31 /* one free bit needed for overflow test */
 #define BPM_FRAC_SCALE (1UL << BPM_FRAC_BITS)
 #define BPM_FRAC_MASK (BPM_FRAC_SCALE-1)
 
 static uint16_t MixVolume;
 static int32_t RealBytesToMix, BytesToMix, MixTransferRemaining, MixTransferOffset, FreqMulVal;
 static uint32_t BytesToMixFractional, CurrentFractional, RandSeed;
-static uint32_t SamplesPerTickInt[256-LOWEST_BPM_POSSIBLE], SamplesPerTickFrac[256-LOWEST_BPM_POSSIBLE];
+static uint32_t SamplesPerTickInt[(MAX_BPM-MIN_BPM)+1], SamplesPerTickFrac[(MAX_BPM-MIN_BPM)+1];
 static float *fMixBuffer, fLastClickRemovalLeft, fLastClickRemovalRight, fPrngStateL, fPrngStateR;
 
 // zeroth-order modified Bessel function of the first kind (series approximation)
@@ -73,24 +70,22 @@ static inline double sinc(double x)
 	}
 }
 
-static bool InitWindowedSincLUT(void)
+static bool CreateWindowedSincKernel(void)
 {
 	Driver.fSincLUT = (float *)malloc(SINC_PHASES * SINC_WIDTH * sizeof (float));
 	if (Driver.fSincLUT == NULL)
 		return false;
 
-	// sinc with Kaiser-Bessel window
-
 	const double kaiserBeta = 9.6377; // lower beta results in audible ringing in some cases
+	const double besselI0BetaReciprocal = 1.0 / besselI0(kaiserBeta);
 
-	const double besselI0Beta = 1.0 / besselI0(kaiserBeta);
 	for (int32_t i = 0; i < SINC_PHASES * SINC_WIDTH; i++)
 	{
 		const double x = ((i & (SINC_WIDTH-1)) - ((SINC_WIDTH / 2) - 1)) - ((i >> SINC_WIDTH_BITS) * (1.0 / SINC_PHASES));
 
 		// Kaiser-Bessel window
 		const double n = x * (1.0 / (SINC_WIDTH / 2));
-		const double window = besselI0(kaiserBeta * sqrt(1.0 - n * n)) * besselI0Beta;
+		const double window = besselI0(kaiserBeta * sqrt(1.0 - n * n)) * besselI0BetaReciprocal;
 
 		Driver.fSincLUT[i] = (float)(sinc(x) * window);
 	}
@@ -187,7 +182,7 @@ static void HQ_MixSamples(void)
 			if (FilterFreqValue != 127*255 || FilterQ != 0)
 			{
 				assert(FilterFreqValue <= 127*255 && FilterQ <= 127);
-				const float r = powf(2.0f, (float)FilterFreqValue * Driver.FreqParameterMultiplier) * Driver.FreqMultiplier;
+				const float r = exp2f((float)FilterFreqValue * Driver.FreqParameterMultiplier) * Driver.FreqMultiplier;
 				const float p = Driver.QualityFactorTable[FilterQ];
 				const float d = (p * r) + (p - 1.0f);
 				const float e = r * r;
@@ -426,10 +421,10 @@ static void HQ_MixSamples(void)
 
 static void HQ_SetTempo(uint8_t Tempo)
 {
-	if (Tempo < LOWEST_BPM_POSSIBLE)
-		Tempo = LOWEST_BPM_POSSIBLE;
+	if (Tempo < MIN_BPM)
+		Tempo = MIN_BPM;
 
-	const uint32_t index = Tempo - LOWEST_BPM_POSSIBLE;
+	const uint32_t index = Tempo - MIN_BPM;
 
 	BytesToMix = SamplesPerTickInt[index];
 	BytesToMixFractional = SamplesPerTickFrac[index];
@@ -474,8 +469,7 @@ static int32_t HQ_PostMix(int16_t *AudioOut16, int32_t SamplesToOutput)
 		fOut = (fOut + fPrng) - fPrngStateL;
 		fPrngStateL = fPrng;
 		out32 = (int32_t)fOut;
-		CLAMP16(out32);
-		*AudioOut16++ = (int16_t)out32;
+		*AudioOut16++ = (int16_t)CLAMP(out32, INT16_MIN, INT16_MAX);
 
 		// right channel - 1-bit triangular dithering
 		fPrng = (float)Random32() * (0.5f / INT32_MAX); // -0.5f .. 0.5f
@@ -483,8 +477,7 @@ static int32_t HQ_PostMix(int16_t *AudioOut16, int32_t SamplesToOutput)
 		fOut = (fOut + fPrng) - fPrngStateR;
 		fPrngStateR = fPrng;
 		out32 = (int32_t)fOut;
-		CLAMP16(out32);
-		*AudioOut16++ = (int16_t)out32;
+		*AudioOut16++ = (int16_t)CLAMP(out32, INT16_MIN, INT16_MAX);
 	}
 
 	return SamplesTodo;
@@ -545,30 +538,25 @@ bool HQ_InitDriver(int32_t mixingFrequency)
 
 	FreqMulVal = (int32_t)round((double)(1ULL << (32+FREQ_MUL_EXTRA_BITS)) / mixingFrequency);
 
-	const int32_t MaxSamplesToMix = (int32_t)ceil((mixingFrequency * 2.5) / LOWEST_BPM_POSSIBLE) + 1;
-
-	fMixBuffer = (float *)malloc(MaxSamplesToMix * 2 * sizeof (float));
+	const int32_t maxSamplesToMix = (int32_t)ceil((mixingFrequency * 2.5) / MIN_BPM) + 1;
+	fMixBuffer = (float *)malloc(maxSamplesToMix * 2 * sizeof (float));
 	if (fMixBuffer == NULL)
 		return false;
 
 	Driver.Flags = DF_SUPPORTS_MIDI | DF_USES_VOLRAMP | DF_HAS_RESONANCE_FILTER;
 	Driver.NumChannels = 256;
-	Driver.MixSpeed = mixingFrequency;
+	Driver.MixFrequency = mixingFrequency;
 	Driver.Type = DRIVER_HQ;
 
 	// calculate samples-per-tick tables
-	for (int32_t i = LOWEST_BPM_POSSIBLE; i <= 255; i++)
+	for (int32_t bpm = MIN_BPM; bpm <= MAX_BPM; bpm++)
 	{
-		const double dHz = i * (1.0 / 2.5);
-		const double dSamplesPerTick = Driver.MixSpeed / dHz;
+		const double dSamplesPerTick = (Driver.MixFrequency * 2.5) / bpm;
+		const uint64_t samplesPerTickFp = (uint64_t)((dSamplesPerTick * BPM_FRAC_SCALE) + 0.5); // rounded
 
-		// break into int/frac parts
-		double dInt;
-		const double dFrac = modf(dSamplesPerTick, &dInt);
-
-		const uint32_t index = i - LOWEST_BPM_POSSIBLE;
-		SamplesPerTickInt[index] = (uint32_t)dInt;
-		SamplesPerTickFrac[index] = (uint32_t)((dFrac * BPM_FRAC_SCALE) + 0.5);
+		const uint32_t i = bpm - MIN_BPM;
+		SamplesPerTickInt[i] = (uint32_t)(samplesPerTickFp >> BPM_FRAC_BITS);
+		SamplesPerTickFrac[i] = (uint32_t)(samplesPerTickFp & BPM_FRAC_MASK);
 	}
 
 	// setup driver functions
@@ -581,5 +569,5 @@ bool HQ_InitDriver(int32_t mixingFrequency)
 	DriverPostMix = HQ_PostMix;
 	DriverMixSamples = HQ_MixSamples;
 
-	return InitWindowedSincLUT();
+	return CreateWindowedSincKernel();
 }

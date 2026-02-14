@@ -68,8 +68,8 @@ uint8_t LoadIT(MEMFILE *m)
 	/* *absolute* lowest possible initial tempo is 31, we need to clamp
 	** it for safety reasons (yes, IT2 can do 31 as initial tempo!).
 	*/
-	if (Song.Header.InitialTempo < LOWEST_BPM_POSSIBLE)
-		Song.Header.InitialTempo = LOWEST_BPM_POSSIBLE;
+	if (Song.Header.InitialTempo < MIN_BPM)
+		Song.Header.InitialTempo = MIN_BPM;
 
 	int32_t PtrListOffset = 192 + Song.Header.OrdNum;
 
