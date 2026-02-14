@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include "it_structs.h"
 
+#ifndef PI
+#define PI 3.14159265358979323846264338327950288
+#endif
+
 // AUDIO DRIVERS
 #if defined AUDIODRIVER_SDL
 #include "audiodrivers/sdl/sdldriver.h"
@@ -82,6 +86,7 @@ void Update(void);
 void Music_FillAudioBuffer(int16_t *buffer, int32_t numSamples);
 
 bool Music_Init(int32_t mixingFrequency, int32_t mixingBufferSize, int32_t DriverType);
+void Music_CalculateFilterTables(uint32_t mixingFrequency); // 8bb: added this
 void Music_Close(void); // 8bb: added this
 void Music_Stop(void);
 void Music_StopChannels(void);

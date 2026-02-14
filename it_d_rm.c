@@ -101,6 +101,8 @@ uint8_t Music_LoadFromData(uint8_t *Data, uint32_t DataLen)
 		if (DriverFixSamples != NULL)
 			DriverFixSamples();
 
+		Music_CalculateFilterTables(Driver.MixFrequency);
+
 		Song.Loaded = true;
 		return Result;
 	}

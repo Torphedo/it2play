@@ -18,15 +18,13 @@
 #include <string.h>
 #include <math.h>
 #include "../it_structs.h"
-#include "../it_music.h" // Update()
+#include "../it_music.h" // Update(), PI
 #include "hq_m.h"
 #include "hq_fixsample.h"
 #include "zerovol.h"
 
 // Higher is better. 14 is max for audio output rates of 44100Hz (and higher).
 #define FREQ_MUL_EXTRA_BITS 14
-
-#define PI 3.14159265358979323846264338327950288
 
 #define CLAMP(x, low, high) (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
@@ -543,7 +541,7 @@ bool HQ_InitDriver(int32_t mixingFrequency)
 	if (fMixBuffer == NULL)
 		return false;
 
-	Driver.Flags = DF_SUPPORTS_MIDI | DF_USES_VOLRAMP | DF_HAS_RESONANCE_FILTER;
+	Driver.Flags = DF_SUPPORTS_MIDI | DF_USES_VOLRAMP | DF_HAS_RESONANCE_FILTER | DF_SUPPORTS_EXTENDED_FILTER_RANGE;
 	Driver.NumChannels = 256;
 	Driver.MixFrequency = mixingFrequency;
 	Driver.Type = DRIVER_HQ;

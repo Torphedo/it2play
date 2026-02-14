@@ -2008,18 +2008,26 @@ bool Music_Init(int32_t mixingFrequency, int32_t mixingBufferSize, int32_t Drive
 		break;
 	}
 
-	// 8bb: pre-calc filter coeff tables if the selected driver has filter support
+	return true;
+}
+
+void Music_CalculateFilterTables(uint32_t mixingFrequency) // 8bb: added this
+{
 	if (Driver.Flags & DF_HAS_RESONANCE_FILTER)
 	{
-		// 8bb: pre-calculate QualityFactorTable (bit-accurate)
+		double filterStep;
+
+		if ((Song.Header.Flags & ITF_EXTENDED_FILTER_RANGE) && (Driver.Flags & DF_SUPPORTS_EXTENDED_FILTER_RANGE))
+			filterStep = 20.0; // OpenMPT in "extended filter range" mode
+		else
+			filterStep = 24.0; // IT2
+
 		for (int32_t i = 0; i < 128; i++)
-			Driver.QualityFactorTable[i] = (float)pow(10.0, i * (-24.0 / (128.0 * 20.0)));
+			Driver.QualityFactorTable[i] = (float)pow(10.0, (-i * filterStep) / (128.0 * 20.0));
 
-		Driver.FreqParameterMultiplier = -0.000162760407f; // -1/(24*256) (8bb: w/ small rounding error!)
-		Driver.FreqMultiplier = 0.00121666200f * (float)mixingFrequency; // 1/(2*PI*110*2^0.25) * mixingFrequency
+		Driver.FreqParameterMultiplier = (float)(-1.0 / (filterStep * 256.0));
+		Driver.FreqMultiplier = (float)((1.0 / (2.0 * PI * 110.0 * exp2(0.25))) * mixingFrequency);
 	}
-
-	return true;
 }
 
 void Music_Close(void) // 8bb: added this

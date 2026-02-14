@@ -74,7 +74,8 @@ enum // 8bb: IT header flags
 	ITF_OLD_EFFECTS = 16,
 	ITF_COMPAT_GXX = 32,
 	ITF_USE_MIDI_PITCH_CNTRL = 64,
-	ITF_REQ_MIDI_CFG = 128
+	ITF_REQ_MIDI_CFG = 128,
+	ITF_EXTENDED_FILTER_RANGE = 4096, // 8bb: added this (OpenMPT)
 };
 
 enum // 8bb: audio driver flags
@@ -82,7 +83,8 @@ enum // 8bb: audio driver flags
 	DF_SUPPORTS_MIDI = 1,
 	DF_USES_VOLRAMP = 2, // 8bb: aka. "hiqual"
 	DF_WAVEFORM = 4, // Output waveform data available
-	DF_HAS_RESONANCE_FILTER = 8 // 8bb: added this
+	DF_HAS_RESONANCE_FILTER = 8, // 8bb: added this
+	DF_SUPPORTS_EXTENDED_FILTER_RANGE = 16 // 8bb: added this (OpenMPT)
 };
 
 // 8bb: do NOT change these, it will only mess things up!
