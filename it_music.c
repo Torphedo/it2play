@@ -2017,8 +2017,8 @@ void Music_CalculateFilterTables(uint32_t mixingFrequency) // 8bb: added this
 	{
 		double filterStep;
 
-		if ((Song.Header.Flags & ITF_EXTENDED_FILTER_RANGE) && (Driver.Flags & DF_SUPPORTS_EXTENDED_FILTER_RANGE))
-			filterStep = 20.0; // OpenMPT in "extended filter range" mode
+		if ((Song.Header.Flags & ITF_MPT_EXT_FILTER_RANGE) && (Driver.Flags & DF_SUPPORTS_MPT_EXT_FILTER_RANGE))
+			filterStep = 20.0; // ModPlug Tracker 'extended filter range' mode
 		else
 			filterStep = 24.0; // IT2
 

@@ -75,7 +75,7 @@ enum // 8bb: IT header flags
 	ITF_COMPAT_GXX = 32,
 	ITF_USE_MIDI_PITCH_CNTRL = 64,
 	ITF_REQ_MIDI_CFG = 128,
-	ITF_EXTENDED_FILTER_RANGE = 4096, // 8bb: added this (OpenMPT)
+	ITF_MPT_EXT_FILTER_RANGE = 4096, // 8bb: added this (ModPlug Tracker)
 };
 
 enum // 8bb: audio driver flags
@@ -84,7 +84,7 @@ enum // 8bb: audio driver flags
 	DF_USES_VOLRAMP = 2, // 8bb: aka. "hiqual"
 	DF_WAVEFORM = 4, // Output waveform data available
 	DF_HAS_RESONANCE_FILTER = 8, // 8bb: added this
-	DF_SUPPORTS_EXTENDED_FILTER_RANGE = 16 // 8bb: added this (OpenMPT)
+	DF_SUPPORTS_MPT_EXT_FILTER_RANGE = 16 // 8bb: added this (ModPlug Tracker)
 };
 
 // 8bb: do NOT change these, it will only mess things up!

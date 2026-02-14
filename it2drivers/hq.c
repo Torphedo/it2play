@@ -9,7 +9,7 @@
 ** - Stereo sample support
 ** - 32.32 fixed-point sampling precision
 ** - Ended non-looping samples are ramped out, like the WAV writer driver
-** - Supports OpenMPT's extended filter range for such modules
+** - Supports ModPlug Tracker extended filter range
 */
 
 #include <assert.h>
@@ -542,7 +542,7 @@ bool HQ_InitDriver(int32_t mixingFrequency)
 	if (fMixBuffer == NULL)
 		return false;
 
-	Driver.Flags = DF_SUPPORTS_MIDI | DF_USES_VOLRAMP | DF_HAS_RESONANCE_FILTER | DF_SUPPORTS_EXTENDED_FILTER_RANGE;
+	Driver.Flags = DF_SUPPORTS_MIDI | DF_USES_VOLRAMP | DF_HAS_RESONANCE_FILTER | DF_SUPPORTS_MPT_EXT_FILTER_RANGE;
 	Driver.NumChannels = 256;
 	Driver.MixFrequency = mixingFrequency;
 	Driver.Type = DRIVER_HQ;
