@@ -22,6 +22,7 @@
 #include "it_d_rm.h"
 #include "loaders/it.h"
 #include "loaders/s3m.h"
+#include "it2drivers/hq.h"
 
 static bool FirstTimeLoading = true;
 
@@ -102,6 +103,9 @@ uint8_t Music_LoadFromData(uint8_t *Data, uint32_t DataLen)
 			DriverFixSamples();
 
 		Music_CalculateFilterTables(Driver.MixFrequency);
+
+		if (Driver.Type == DRIVER_HQ)
+			setHQDriverMixGain();
 
 		Song.Loaded = true;
 		return Result;

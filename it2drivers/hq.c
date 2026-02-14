@@ -37,7 +37,77 @@ static uint16_t MixVolume;
 static int32_t RealBytesToMix, BytesToMix, MixTransferRemaining, MixTransferOffset, FreqMulVal;
 static uint32_t BytesToMixFractional, CurrentFractional, RandSeed;
 static uint32_t SamplesPerTickInt[(MAX_BPM-MIN_BPM)+1], SamplesPerTickFrac[(MAX_BPM-MIN_BPM)+1];
-static float *fMixBuffer, fLastClickRemovalLeft, fLastClickRemovalRight, fPrngStateL, fPrngStateR;
+static float MixGain = 32768.0f, *fMixBuffer, fLastClickRemovalLeft, fLastClickRemovalRight, fPrngStateL, fPrngStateR;
+
+void setHQDriverMixGain(void)
+{
+	MixGain = 32768.0f;
+
+	/* We need to change the mixing gain if the module came from
+	** ModPlug Tracker.
+	*/
+
+	// table from OpenMPT, with normalization edit
+	static const float PreAmpTable[16] =
+	{
+		64.0f/0x60, 64.0f/0x60, 64.0f/0x60, 64.0f/0x70, // 0-7
+		64.0f/0x80, 64.0f/0x88, 64.0f/0x90, 64.0f/0x98, // 8-15
+		64.0f/0xA0, 64.0f/0xA4, 64.0f/0xA8, 64.0f/0xAC, // 16-23
+		64.0f/0xB0, 64.0f/0xB4, 64.0f/0xB8, 64.0f/0xBC  // 24-31
+	};
+
+	if ((Song.Header.Cwtv == 0x0214 && Song.Header.Cmwt == 0x0202) ||
+		(Song.Header.Cwtv == 0x0217 && Song.Header.Cmwt == 0x0200))
+	{
+		// find highest used channel
+
+		int32_t highestChannel = 0;
+
+		uint8_t maskvar[128];
+		memset(maskvar, 0, sizeof (maskvar));
+
+		pattern_t *pat = Song.Patt;
+		for (int32_t i = 0; i < Song.Header.PatNum; i++, pat++)
+		{
+			uint8_t *p = pat->PackedData;
+			if (p == NULL || pat->Rows == 0)
+				continue;
+
+			uint16_t row = 0;
+			while (true)
+			{
+				uint8_t byte = *p++;
+				if (byte == 0)
+				{
+					if (++row >= pat->Rows)
+						break;
+				}
+				else
+				{
+					uint8_t ch = (byte - 1) & 127;
+					if (ch > highestChannel)
+						highestChannel = ch;
+
+					if (highestChannel > 31)
+					{
+						highestChannel = 31;
+						break;
+					}
+
+					if (byte & 0x80)
+						maskvar[ch] = *p++;
+
+					if (maskvar[ch] & 1) p++;
+					if (maskvar[ch] & 2) p++;
+					if (maskvar[ch] & 4) p++;
+					if (maskvar[ch] & 8) p += 2;
+				}
+			}
+		}
+
+		MixGain *= PreAmpTable[highestChannel / 2];
+	}
+}
 
 // zeroth-order modified Bessel function of the first kind (series approximation)
 static inline double besselI0(double z)
@@ -464,7 +534,7 @@ static int32_t HQ_PostMix(int16_t *AudioOut16, int32_t SamplesToOutput)
 	{
 		// left channel - 1-bit triangular dithering
 		fPrng = (float)Random32() * (0.5f / INT32_MAX); // -0.5f .. 0.5f
-		fOut = fMixBuffer[MixTransferOffset++] * 32768.0f;
+		fOut = fMixBuffer[MixTransferOffset++] * MixGain;
 		fOut = (fOut + fPrng) - fPrngStateL;
 		fPrngStateL = fPrng;
 		out32 = (int32_t)fOut;
@@ -472,7 +542,7 @@ static int32_t HQ_PostMix(int16_t *AudioOut16, int32_t SamplesToOutput)
 
 		// right channel - 1-bit triangular dithering
 		fPrng = (float)Random32() * (0.5f / INT32_MAX); // -0.5f .. 0.5f
-		fOut = fMixBuffer[MixTransferOffset++] * 32768.0f;
+		fOut = fMixBuffer[MixTransferOffset++] * MixGain;
 		fOut = (fOut + fPrng) - fPrngStateR;
 		fPrngStateR = fPrng;
 		out32 = (int32_t)fOut;
