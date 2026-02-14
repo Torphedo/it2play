@@ -47,7 +47,7 @@ static int8_t GetModuleType(MEMFILE *m) // 8bb: added this
 	return Format;
 }
 
-bool Music_LoadFromData(uint8_t *Data, uint32_t DataLen)
+uint8_t Music_LoadFromData(uint8_t *Data, uint32_t DataLen)
 {
 	bool WasCompressed = false;
 	if (DataLen >= 4+4) // find out if module is MMCMP compressed
@@ -77,7 +77,7 @@ bool Music_LoadFromData(uint8_t *Data, uint32_t DataLen)
 		Music_FreeSong();
 	}
 
-	bool WasLoaded = false;
+	uint8_t Result = LOAD_ERR_INCOMPATIBLE;
 
 	uint8_t Format = GetModuleType(m);
 	if (Format != FORMAT_UNKNOWN)
@@ -86,8 +86,8 @@ bool Music_LoadFromData(uint8_t *Data, uint32_t DataLen)
 		switch (Format)
 		{
 			default: break;
-			case FORMAT_IT:  WasLoaded = LoadIT(m);  break;
-			case FORMAT_S3M: WasLoaded = LoadS3M(m); break;
+			case FORMAT_IT:  Result = LoadIT(m);  break;
+			case FORMAT_S3M: Result = LoadS3M(m); break;
 		}
 	}
 
@@ -95,25 +95,26 @@ bool Music_LoadFromData(uint8_t *Data, uint32_t DataLen)
 	if (WasCompressed)
 		free(Data);
 
-	if (WasLoaded)
+	if (Result == LOAD_OK)
 	{
 		DriverSetMixVolume(Song.Header.MixVolume);
 		if (DriverFixSamples != NULL)
 			DriverFixSamples();
 
 		Song.Loaded = true;
-		return true;
+		return Result;
 	}
 	else
 	{
 		Music_FreeSong();
-
 		Song.Loaded = false;
-		return false;
+		
 	}
+
+	return Result;
 }
 
-bool Music_LoadFromFile(const char *Filename)
+uint8_t Music_LoadFromFile(const char *Filename)
 {
 	FILE *f = fopen(Filename, "rb");
 	if (f == NULL)
@@ -144,7 +145,7 @@ bool Music_LoadFromFile(const char *Filename)
 
 	fclose(f);
 
-	bool Result = Music_LoadFromData(Data, FileSize);
+	uint8_t Result = Music_LoadFromData(Data, FileSize);
 	free(Data);
 
 	return Result;

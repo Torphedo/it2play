@@ -14,12 +14,14 @@
 #include "../it_structs.h"
 #include "../it_d_rm.h"
 
+static uint8_t lastErr;
+
 static void Decompress16BitData(int16_t *Dst, const uint8_t *Src, uint32_t BlockLen);
 static void Decompress8BitData(int8_t *Dst, const uint8_t *Src, uint32_t BlockLen);
 static bool LoadCompressed16BitSample(MEMFILE *m, sample_t *s, bool Stereo, bool DeltaEncoded);
 static bool LoadCompressed8BitSample(MEMFILE *m, sample_t *s, bool Stereo, bool DeltaEncoded);
 
-bool LoadIT(MEMFILE *m)
+uint8_t LoadIT(MEMFILE *m)
 {
 	/*
 	** ===================================
@@ -28,33 +30,33 @@ bool LoadIT(MEMFILE *m)
 	*/
 
 	mseek(m, 4, SEEK_CUR);
-	if (!ReadBytes(m, Song.Header.SongName, 25)) return false;
+	if (!ReadBytes(m, Song.Header.SongName, 25)) return LOAD_ERR_GENERAL_IO;
 	mseek(m, 1+2, SEEK_CUR);
-	if (!ReadBytes(m, &Song.Header.OrdNum, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.InsNum, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.SmpNum, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.PatNum, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.Cwtv, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.Cmwt, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.Flags, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.Special, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.GlobalVol, 1)) return false;
-	if (!ReadBytes(m, &Song.Header.MixVolume, 1)) return false;
-	if (!ReadBytes(m, &Song.Header.InitialSpeed, 1)) return false;
-	if (!ReadBytes(m, &Song.Header.InitialTempo, 1)) return false;
-	if (!ReadBytes(m, &Song.Header.PanSep, 1)) return false;
+	if (!ReadBytes(m, &Song.Header.OrdNum, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.InsNum, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.SmpNum, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.PatNum, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.Cwtv, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.Cmwt, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.Flags, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.Special, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.GlobalVol, 1)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.MixVolume, 1)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.InitialSpeed, 1)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.InitialTempo, 1)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.PanSep, 1)) return LOAD_ERR_GENERAL_IO;
 	mseek(m, 1, SEEK_CUR);
-	if (!ReadBytes(m, &Song.Header.MessageLength, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.MessageOffset, 4)) return false;
+	if (!ReadBytes(m, &Song.Header.MessageLength, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.MessageOffset, 4)) return LOAD_ERR_GENERAL_IO;
 	mseek(m, 4, SEEK_CUR); // skip unwanted stuff
-	if (!ReadBytes(m, Song.Header.ChnlPan, MAX_HOST_CHANNELS)) return false;
-	if (!ReadBytes(m, Song.Header.ChnlVol, MAX_HOST_CHANNELS)) return false;
+	if (!ReadBytes(m, Song.Header.ChnlPan, MAX_HOST_CHANNELS)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, Song.Header.ChnlVol, MAX_HOST_CHANNELS)) return LOAD_ERR_GENERAL_IO;
 
 	// IT2 doesn't do this test, but I do it for safety.
 	if (Song.Header.OrdNum > MAX_ORDERS+1 || Song.Header.InsNum > MAX_INSTRUMENTS ||
 		Song.Header.SmpNum > MAX_SAMPLES  || Song.Header.PatNum > MAX_PATTERNS)
 	{
-		return false;
+		return LOAD_ERR_INCOMPATIBLE;
 	}
 
 	// IT2 doesn't do this, but let's do it for safety
@@ -75,7 +77,7 @@ bool LoadIT(MEMFILE *m)
 	if (OrdersToLoad > 0)
 	{
 		if (!ReadBytes(m, Song.Orders, OrdersToLoad))
-			return false;
+			return LOAD_ERR_GENERAL_IO;
 
 		// fill rest of order list with 255
 		if (OrdersToLoad < MAX_ORDERS)
@@ -122,39 +124,39 @@ bool LoadIT(MEMFILE *m)
 	for (uint32_t i = 0; i < Song.Header.InsNum; i++, ins++)
 	{
 		mseek(m, InsPtrOffset + (i * 4), SEEK_SET);
-		if (meof(m)) return false;
+		if (meof(m)) return LOAD_ERR_GENERAL_IO;
 
 		uint32_t InsOffset;
-		if (!ReadBytes(m, &InsOffset, 4)) return false;
+		if (!ReadBytes(m, &InsOffset, 4)) return LOAD_ERR_GENERAL_IO;
 
 		if (InsOffset == 0)
 			continue;
 
 		mseek(m, InsOffset, SEEK_SET);
-		if (meof(m)) return false;
+		if (meof(m)) return LOAD_ERR_GENERAL_IO;
 
 		if (Song.Header.Cmwt >= 0x200)
 		{
 			mseek(m, 4, SEEK_CUR); // skip unwanted stuff
-			if (!ReadBytes(m, ins->DOSFilename, 13)) return false;
-			if (!ReadBytes(m, &ins->NNA, 1)) return false;
-			if (!ReadBytes(m, &ins->DCT, 1)) return false;
-			if (!ReadBytes(m, &ins->DCA, 1)) return false;
-			if (!ReadBytes(m, &ins->FadeOut, 2)) return false;
-			if (!ReadBytes(m, &ins->PitchPanSep, 1)) return false;
-			if (!ReadBytes(m, &ins->PitchPanCenter, 1)) return false;
-			if (!ReadBytes(m, &ins->GlobVol, 1)) return false;
-			if (!ReadBytes(m, &ins->DefPan, 1)) return false;
-			if (!ReadBytes(m, &ins->RandVol, 1)) return false;
-			if (!ReadBytes(m, &ins->RandPan, 1)) return false;
+			if (!ReadBytes(m, ins->DOSFilename, 13)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->NNA, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->DCT, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->DCA, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->FadeOut, 2)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->PitchPanSep, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->PitchPanCenter, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->GlobVol, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->DefPan, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->RandVol, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->RandPan, 1)) return LOAD_ERR_GENERAL_IO;
 			mseek(m, 4, SEEK_CUR); // skip unwanted stuff
-			if (!ReadBytes(m, ins->InstrumentName, 26)) return false;
-			if (!ReadBytes(m, &ins->FilterCutoff, 1)) return false;
-			if (!ReadBytes(m, &ins->FilterResonance, 1)) return false;
-			if (!ReadBytes(m, &ins->MIDIChn, 1)) return false;
-			if (!ReadBytes(m, &ins->MIDIProg, 1)) return false;
-			if (!ReadBytes(m, &ins->MIDIBank, 2)) return false;
-			if (!ReadBytes(m, &ins->SmpNoteTable, 2*120)) return false;
+			if (!ReadBytes(m, ins->InstrumentName, 26)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->FilterCutoff, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->FilterResonance, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->MIDIChn, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->MIDIProg, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->MIDIBank, 2)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->SmpNoteTable, 2*120)) return LOAD_ERR_GENERAL_IO;
 
 			// just in case
 			ins->DOSFilename[12] = '\0';
@@ -169,18 +171,18 @@ bool LoadIT(MEMFILE *m)
 				else if (j == 1) env = &ins->PanEnv;
 				else             env = &ins->PitchEnv;
 
-				if (!ReadBytes(m, &env->Flags, 1)) return false;
-				if (!ReadBytes(m, &env->Num, 1)) return false;
-				if (!ReadBytes(m, &env->LoopBegin, 1)) return false;
-				if (!ReadBytes(m, &env->LoopEnd, 1)) return false;
-				if (!ReadBytes(m, &env->SustainLoopBegin, 1)) return false;
-				if (!ReadBytes(m, &env->SustainLoopEnd, 1)) return false;
+				if (!ReadBytes(m, &env->Flags, 1)) return LOAD_ERR_GENERAL_IO;
+				if (!ReadBytes(m, &env->Num, 1)) return LOAD_ERR_GENERAL_IO;
+				if (!ReadBytes(m, &env->LoopBegin, 1)) return LOAD_ERR_GENERAL_IO;
+				if (!ReadBytes(m, &env->LoopEnd, 1)) return LOAD_ERR_GENERAL_IO;
+				if (!ReadBytes(m, &env->SustainLoopBegin, 1)) return LOAD_ERR_GENERAL_IO;
+				if (!ReadBytes(m, &env->SustainLoopEnd, 1)) return LOAD_ERR_GENERAL_IO;
 
 				envNode_t *node = env->NodePoints;
 				for (uint32_t k = 0; k < 25; k++, node++)
 				{
-					if (!ReadBytes(m, &node->Magnitude, 1)) return false;
-					if (!ReadBytes(m, &node->Tick, 2)) return false;
+					if (!ReadBytes(m, &node->Magnitude, 1)) return LOAD_ERR_GENERAL_IO;
+					if (!ReadBytes(m, &node->Tick, 2)) return LOAD_ERR_GENERAL_IO;
 				}
 
 				mseek(m, 1, SEEK_CUR); // skip unwanted stuff
@@ -189,20 +191,20 @@ bool LoadIT(MEMFILE *m)
 		else // old instruments (v1.xx)
 		{
 			mseek(m, 4, SEEK_CUR); // skip unwanted stuff
-			if (!ReadBytes(m, ins->DOSFilename, 13)) return false;
-			if (!ReadBytes(m, &ins->VolEnv.Flags, 1)) return false;
-			if (!ReadBytes(m, &ins->VolEnv.LoopBegin, 1)) return false;
-			if (!ReadBytes(m, &ins->VolEnv.LoopEnd, 1)) return false;
-			if (!ReadBytes(m, &ins->VolEnv.SustainLoopBegin, 1)) return false;
-			if (!ReadBytes(m, &ins->VolEnv.SustainLoopEnd, 1)) return false;
+			if (!ReadBytes(m, ins->DOSFilename, 13)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->VolEnv.Flags, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->VolEnv.LoopBegin, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->VolEnv.LoopEnd, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->VolEnv.SustainLoopBegin, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->VolEnv.SustainLoopEnd, 1)) return LOAD_ERR_GENERAL_IO;
 			mseek(m, 2, SEEK_CUR); // skip unwanted stuff
-			if (!ReadBytes(m, &ins->FadeOut, 2)) return false;
-			if (!ReadBytes(m, &ins->NNA, 1)) return false;
-			if (!ReadBytes(m, &ins->DCT, 1)) return false;
+			if (!ReadBytes(m, &ins->FadeOut, 2)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->NNA, 1)) return LOAD_ERR_GENERAL_IO;
+			if (!ReadBytes(m, &ins->DCT, 1)) return LOAD_ERR_GENERAL_IO;
 			mseek(m, 4, SEEK_CUR); // skip unwanted stuff
-			if (!ReadBytes(m, ins->InstrumentName, 26)) return false;
+			if (!ReadBytes(m, ins->InstrumentName, 26)) return LOAD_ERR_GENERAL_IO;
 			mseek(m, 6, SEEK_CUR); // skip unwanted stuff
-			if (!ReadBytes(m, &ins->SmpNoteTable, 2*120)) return false;
+			if (!ReadBytes(m, &ins->SmpNoteTable, 2*120)) return LOAD_ERR_GENERAL_IO;
 
 			ins->FadeOut *= 2;
 
@@ -224,7 +226,7 @@ bool LoadIT(MEMFILE *m)
 				uint16_t word;
 				envNode_t *node = &ins->VolEnv.NodePoints[j];
 
-				if (!ReadBytes(m, &word, 2)) return false;
+				if (!ReadBytes(m, &word, 2)) return LOAD_ERR_GENERAL_IO;
 				if (word == 0xFFFF)
 					break; // end of envelope
 
@@ -255,36 +257,36 @@ bool LoadIT(MEMFILE *m)
 	for (uint32_t i = 0; i < Song.Header.SmpNum; i++, s++)
 	{
 		mseek(m, SmpPtrOffset + (i * 4), SEEK_SET);
-		if (meof(m)) return false;
+		if (meof(m)) return LOAD_ERR_GENERAL_IO;
 
 		uint32_t SmpOffset;
-		if (!ReadBytes(m, &SmpOffset, 4)) return false;
+		if (!ReadBytes(m, &SmpOffset, 4)) return LOAD_ERR_GENERAL_IO;
 
 		if (SmpOffset == 0)
 			continue;
 
 		mseek(m, SmpOffset, SEEK_SET);
-		if (meof(m)) return false;
+		if (meof(m)) return LOAD_ERR_GENERAL_IO;
 
 		mseek(m, 4, SEEK_CUR); // skip unwanted stuff
-		if (!ReadBytes(m, s->DOSFilename, 13)) return false;
-		if (!ReadBytes(m, &s->GlobVol, 1)) return false;
-		if (!ReadBytes(m, &s->Flags, 1)) return false;
-		if (!ReadBytes(m, &s->Vol, 1)) return false;
-		if (!ReadBytes(m, s->SampleName, 26)) return false;
-		if (!ReadBytes(m, &s->Cvt, 1)) return false;
-		if (!ReadBytes(m, &s->DefPan, 1)) return false;
-		if (!ReadBytes(m, &s->Length, 4)) return false;
-		if (!ReadBytes(m, &s->LoopBegin, 4)) return false;
-		if (!ReadBytes(m, &s->LoopEnd, 4)) return false;
-		if (!ReadBytes(m, &s->C5Speed, 4)) return false;
-		if (!ReadBytes(m, &s->SustainLoopBegin, 4)) return false;
-		if (!ReadBytes(m, &s->SustainLoopEnd, 4)) return false;
-		if (!ReadBytes(m, &s->OffsetInFile, 4)) return false;
-		if (!ReadBytes(m, &s->AutoVibratoSpeed, 1)) return false;
-		if (!ReadBytes(m, &s->AutoVibratoDepth, 1)) return false;
-		if (!ReadBytes(m, &s->AutoVibratoRate, 1)) return false;
-		if (!ReadBytes(m, &s->AutoVibratoWaveform, 1)) return false;
+		if (!ReadBytes(m, s->DOSFilename, 13)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->GlobVol, 1)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->Flags, 1)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->Vol, 1)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, s->SampleName, 26)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->Cvt, 1)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->DefPan, 1)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->Length, 4)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->LoopBegin, 4)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->LoopEnd, 4)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->C5Speed, 4)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->SustainLoopBegin, 4)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->SustainLoopEnd, 4)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->OffsetInFile, 4)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->AutoVibratoSpeed, 1)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->AutoVibratoDepth, 1)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->AutoVibratoRate, 1)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &s->AutoVibratoWaveform, 1)) return LOAD_ERR_GENERAL_IO;
 
 		// just in case
 		s->DOSFilename[12] = '\0';
@@ -304,7 +306,7 @@ bool LoadIT(MEMFILE *m)
 
 		mseek(m, s->OffsetInFile, SEEK_SET);
 		if (meof(m))
-			return false;
+			return LOAD_ERR_GENERAL_IO;
 		
 		bool Stereo = !!(s->Flags & SMPF_STEREO); // added stereo support for custom HQ driver
 		bool Compressed = !!(s->Flags & SMPF_COMPRESSED);
@@ -322,13 +324,13 @@ bool LoadIT(MEMFILE *m)
 			continue; // not supported
 
 		if (!Music_AllocateSample(i, s->Length << Sample16Bit))
-			return false;
+			return LOAD_ERR_OUT_OF_MEMORY;
 
 		// added stereo support for custom HQ driver
 		if (Stereo)
 		{
 			if (!Music_AllocateRightSample(i, s->Length << Sample16Bit))
-				return false;
+				return LOAD_ERR_OUT_OF_MEMORY;
 		}
 
 		if (Compressed)
@@ -336,12 +338,12 @@ bool LoadIT(MEMFILE *m)
 			if (Sample16Bit)
 			{
 				if (!LoadCompressed16BitSample(m, s, Stereo, DeltaEncoded))
-					return false;
+					return LOAD_ERR_GENERAL_IO;
 			}
 			else
 			{
 				if (!LoadCompressed8BitSample(m, s, Stereo, DeltaEncoded))
-					return false;
+					return LOAD_ERR_GENERAL_IO;
 			}
 		}
 		else
@@ -388,32 +390,32 @@ bool LoadIT(MEMFILE *m)
 	{
 		mseek(m, PatPtrOffset + (i * 4), SEEK_SET);
 		if (meof(m))
-			return false;
+			return LOAD_ERR_GENERAL_IO;
 
 		uint32_t PatOffset;
-		if (!ReadBytes(m, &PatOffset, 4)) return false;
+		if (!ReadBytes(m, &PatOffset, 4)) return LOAD_ERR_GENERAL_IO;
 
 		if (PatOffset == 0)
 			continue;
 
 		mseek(m, PatOffset, SEEK_SET);
 		if (meof(m))
-			return false;
+			return LOAD_ERR_GENERAL_IO;
 
 		uint16_t PatLength;
-		if (!ReadBytes(m, &PatLength, 2)) return false;
-		if (!ReadBytes(m, &p->Rows, 2)) return false;
+		if (!ReadBytes(m, &PatLength, 2)) return LOAD_ERR_GENERAL_IO;
+		if (!ReadBytes(m, &p->Rows, 2)) return LOAD_ERR_GENERAL_IO;
 
 		if (PatLength == 0 || p->Rows == 0)
 			continue;
 
 		mseek(m, 4, SEEK_CUR);
 
-		if (!Music_AllocatePattern(i, PatLength)) return false;
-		if (!ReadBytes(m, p->PackedData, PatLength)) return false;
+		if (!Music_AllocatePattern(i, PatLength)) return LOAD_ERR_OUT_OF_MEMORY;
+		if (!ReadBytes(m, p->PackedData, PatLength)) return LOAD_ERR_GENERAL_IO;
 	}
 
-	return true;
+	return LOAD_OK;
 }
 
 static void Decompress16BitData(int16_t *Dst, const uint8_t *Src, uint32_t BlockLength)

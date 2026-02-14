@@ -27,20 +27,20 @@ bool LoadS3M(MEMFILE *m)
 	uint8_t DefPan;
 	uint16_t Flags, SmpPtrs[100], PatPtrs[100];
 
-	if (!ReadBytes(m, Song.Header.SongName, 25)) return false;
+	if (!ReadBytes(m, Song.Header.SongName, 25)) return LOAD_ERR_GENERAL_IO;
 	mseek(m, 0x20, SEEK_SET);
-	if (!ReadBytes(m, &Song.Header.OrdNum, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.SmpNum, 2)) return false;
-	if (!ReadBytes(m, &Song.Header.PatNum, 2)) return false;
-	if (!ReadBytes(m, &Flags, 2)) return false;
+	if (!ReadBytes(m, &Song.Header.OrdNum, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.SmpNum, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.PatNum, 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Flags, 2)) return LOAD_ERR_GENERAL_IO;
 
 	mseek(m, 0x30, SEEK_SET);
-	if (!ReadBytes(m, &Song.Header.GlobalVol, 1)) return false;
-	if (!ReadBytes(m, &Song.Header.InitialSpeed, 1)) return false;
-	if (!ReadBytes(m, &Song.Header.InitialTempo, 1)) return false;
-	if (!ReadBytes(m, &Song.Header.MixVolume, 1)) return false;
+	if (!ReadBytes(m, &Song.Header.GlobalVol, 1)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.InitialSpeed, 1)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.InitialTempo, 1)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, &Song.Header.MixVolume, 1)) return LOAD_ERR_GENERAL_IO;
 	mseek(m, 1, SEEK_CUR);
-	if (!ReadBytes(m, &DefPan, 1)) return false;
+	if (!ReadBytes(m, &DefPan, 1)) return LOAD_ERR_GENERAL_IO;
 
 	if (Song.Header.SmpNum > 100)
 		Song.Header.SmpNum = 100;
@@ -66,7 +66,7 @@ bool LoadS3M(MEMFILE *m)
 	for (int32_t i = 0; i < 32; i++)
 	{
 		uint8_t Pan;
-		if (!ReadBytes(m, &Pan, 1)) return false;
+		if (!ReadBytes(m, &Pan, 1)) return LOAD_ERR_GENERAL_IO;
 
 		if (Pan >= 128)
 		{
@@ -92,17 +92,17 @@ bool LoadS3M(MEMFILE *m)
 		Song.Header.ChnlVol[i] = 64;
 
 	memset(Song.Orders, 255, MAX_ORDERS);
-	if (!ReadBytes(m, Song.Orders, Song.Header.OrdNum)) return false; // Order list loaded.
+	if (!ReadBytes(m, Song.Orders, Song.Header.OrdNum)) return LOAD_ERR_GENERAL_IO; // Order list loaded.
 
-	if (!ReadBytes(m, SmpPtrs, Song.Header.SmpNum * 2)) return false;
-	if (!ReadBytes(m, PatPtrs, Song.Header.PatNum * 2)) return false;
+	if (!ReadBytes(m, SmpPtrs, Song.Header.SmpNum * 2)) return LOAD_ERR_GENERAL_IO;
+	if (!ReadBytes(m, PatPtrs, Song.Header.PatNum * 2)) return LOAD_ERR_GENERAL_IO;
 
 	if (DefPan == 252) // 8bb: load custom channel pans, if present
 	{
 		for (int32_t i = 0; i < 32; i++)
 		{
 			uint8_t Pan;
-			if (!ReadBytes(m, &Pan, 1)) return false;
+			if (!ReadBytes(m, &Pan, 1)) return LOAD_ERR_GENERAL_IO;
 
 			if (Pan & 32)
 			{
@@ -177,22 +177,22 @@ bool LoadS3M(MEMFILE *m)
 				uint32_t SampleBytes = s->Length << Sample16Bit;
 
 				if (!Music_AllocateSample(i, SampleBytes))
-					return false;
+					return LOAD_ERR_OUT_OF_MEMORY;
 
 				if (Stereo)
 				{
 					if (!Music_AllocateRightSample(i, SampleBytes))
-						return false;
+						return LOAD_ERR_OUT_OF_MEMORY;
 				}
 
 				mseek(m, s->OffsetInFile, SEEK_SET);
 				if (!ReadBytes(m, s->Data, SampleBytes))
-					return false;
+					return LOAD_ERR_GENERAL_IO;
 
 				if (Stereo)
 				{
 					if (!ReadBytes(m, s->DataR, SampleBytes))
-						return false;
+						return LOAD_ERR_GENERAL_IO;
 				}
 
 				if (!Sample16Bit)
@@ -242,25 +242,25 @@ bool LoadS3M(MEMFILE *m)
 
 		uint16_t PackedPatLength;
 		if (!ReadBytes(m, &PackedPatLength, 2))
-			return false;
+			return LOAD_ERR_GENERAL_IO;
 
 		uint8_t *PackedData = (uint8_t *)malloc(PackedPatLength);
 		if (PackedData == NULL)
-			return false;
+			return LOAD_ERR_OUT_OF_MEMORY;
 
 		if (!ReadBytes(m, PackedData, PackedPatLength))
-			return false;
+			return LOAD_ERR_GENERAL_IO;
 
 		if (!TranslateS3MPattern(PackedData, i))
 		{
 			free(PackedData);
-			return false;
+			return LOAD_ERR_GENERAL_IO;
 		}
 
 		free(PackedData);
 	}
 
-	return true;
+	return LOAD_OK;
 }
 
 static bool TranslateS3MPattern(uint8_t *Src, int32_t Pattern)

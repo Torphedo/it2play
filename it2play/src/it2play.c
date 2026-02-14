@@ -123,11 +123,28 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (!Music_LoadFromFile(filename))
+	uint8_t loadResult = Music_LoadFromFile(filename);
+	if (loadResult != LOAD_OK)
 	{
 		Music_FreeSong();
 		Music_Close();
-		printf("ERROR: Couldn't open \"%s\" for reading!\n", filename);
+
+		switch (loadResult)
+		{
+			case LOAD_ERR_GENERAL_IO:
+				printf("LOAD ERROR: General I/O error! Is the file in use?\n");
+				break;
+
+			case LOAD_ERR_OUT_OF_MEMORY:
+				printf("LOAD ERROR: Out of memory!\n");
+				break;
+
+			default:
+			case LOAD_ERR_INCOMPATIBLE:
+				printf("LOAD ERROR: This module is incompatible or corrupt!\n");
+				break;
+		}
+
 		return 1;
 	}
 
