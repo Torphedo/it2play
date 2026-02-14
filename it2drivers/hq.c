@@ -9,6 +9,7 @@
 ** - Stereo sample support
 ** - 32.32 fixed-point sampling precision
 ** - Ended non-looping samples are ramped out, like the WAV writer driver
+** - Supports OpenMPT's extended filter range for such modules
 */
 
 #include <assert.h>
