@@ -6,7 +6,6 @@ find_package(SDL2 REQUIRED)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${it2play_SOURCE_DIR}/it2play/release/other/")
 
 file(GLOB it2play_SRC
-    "${it2play_SOURCE_DIR}/audiodrivers/sdl/*.c"
     "${it2play_SOURCE_DIR}/loaders/mmcmp/*.c"
     "${it2play_SOURCE_DIR}/loaders/*.c"
     "${it2play_SOURCE_DIR}/it2drivers/*.c"
@@ -14,7 +13,7 @@ file(GLOB it2play_SRC
     "${it2play_SOURCE_DIR}/it2play/src/*.c"
 )
 
-add_executable(it2play ${it2play_SRC})
+add_executable(it2play ${it2play_SRC} ${it2play_SOURCE_DIR}/audiodrivers/sdl/sdldriver.c)
 
 target_include_directories(it2play SYSTEM
     PRIVATE ${SDL2_INCLUDE_DIRS})
@@ -32,3 +31,8 @@ target_compile_definitions(it2play
 
 install(TARGETS it2play
     RUNTIME DESTINATION bin)
+
+add_library(IT2 STATIC ${it2play_SRC} ${it2play_SOURCE_DIR}/audiodrivers/null/nulldriver.c)
+target_compile_definitions(IT2
+    PRIVATE AUDIODRIVER_NULL)
+
