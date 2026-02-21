@@ -13,6 +13,8 @@
 #include "audiodrivers/sdl/sdldriver.h"
 #elif defined AUDIODRIVER_WINMM
 #include "audiodrivers/winmm/winmm.h"
+#elif defined AUDIODRIVER_NULL
+#include "audiodrivers/null/nulldriver.h"
 #else
 // Read "audiodrivers/how_to_write_drivers.txt"
 #endif
