@@ -297,7 +297,7 @@ uint8_t LoadIT(MEMFILE *m)
 	*/
 
 	s = Song.Smp;
-	for (uint32_t i = 0; i < Song.Header.SmpNum; i++, s++)
+	for (uint32_t i = 0; i < Song.Header.SmpNum - 1; i++, s++)
 	{
 		if (s->OffsetInFile == 0 || !(s->Flags & SMPF_ASSOCIATED_WITH_HEADER))
 			continue;
