@@ -252,7 +252,7 @@ uint8_t LoadIT(MEMFILE *m)
 	size_t SmpPtrOffset = mtell(m);
 
 	sample_t *s = Song.Smp;
-	for (uint32_t i = 0; i < Song.Header.SmpNum; i++, s++)
+	for (uint32_t i = 0; i < Song.Header.SmpNum - 1; i++, s++)
 	{
 		mseek(m, SmpPtrOffset + (i * 4), SEEK_SET);
 		if (meof(m)) return LOAD_ERR_GENERAL_IO;
