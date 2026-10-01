@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h> // nearbyintf()
-#include <fenv.h> // fesetround()
 #include "../it_structs.h"
 #include "../it_music.h" // Update()
 #include "sb16mmx_m.h"
